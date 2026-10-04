@@ -1,0 +1,36 @@
+# Local assistant/workspace metadata
+.agents/
+.codex/
+.vscode/
+
+# Private planning notes
+SIDE_QUESTS.md
+
+# Build and packaged output
+build/
+a.out
+*.o
+!include/SAGE/src/ext/PT-AHIPlay.o
+*.map
+*.lst
+
+# Local backups and temporary files
+Makefile.backup
+*~
+*.bak
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Old/unused toolchain folders
+tools/
+targets/
+
+# Legacy static renderer: the demo builds against MaggieLibrary directly.
+include/Maggie3D/
+
+# Third-party examples, tests, and prebuilt libraries not used by this GCC build
+include/SAGE/tests/
+include/SAGE/tutorial/
+include/SAGE/lib/
+include/MaggieLibrary/samples/
