@@ -285,6 +285,7 @@ package: $(TARGET) maggie-library | $(PACKAGE_ROOT)
 	rm -rf $(PACKAGE_DIR)
 	$(MKDIR_P) $(PACKAGE_DIR)
 	cp -f $(TARGET) $(PACKAGE_DIR)/
+	cp -f spy_girl.info $(PACKAGE_DIR)/$(PACKAGE_NAME).info
 	cp -f $(MAGGIELIB_BUILD_LIBRARY) $(PACKAGE_DIR)/
 	cp -f file_id.diz $(PACKAGE_DIR)/
 	cp -f READ.ME $(PACKAGE_DIR)/read.me
