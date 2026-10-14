@@ -62,6 +62,7 @@ APP_CSRCS = \
 	$(SRC_DIR)/spy_logo.c \
 	$(SRC_DIR)/spy_maggie.c \
 	$(SRC_DIR)/spy_maggie_stream.c \
+	$(SRC_DIR)/spy_png.c \
 	$(SRC_DIR)/spy_preload.c \
 	$(SRC_DIR)/spy_text.c \
 	$(SRC_DIR)/spy_tunnel.c \
@@ -167,8 +168,9 @@ SAGE_COBJS = $(patsubst $(SAGE_SRC_DIR)/%.c,$(OBJ_DIR)/sage_%.o,$(SAGE_CSRCS))
 SAGE_ASMOBJS = $(patsubst $(SAGE_SRC_DIR)/%.asm,$(OBJ_DIR)/sage_%.o,$(SAGE_ASMSRCS))
 MAGGIE3D_COBJS = $(patsubst $(MAGGIE3D_SRC_DIR)/%.c,$(OBJ_DIR)/maggie3d_%.o,$(MAGGIE3D_CSRCS))
 MAGGIE3D_ASMOBJS = $(patsubst $(MAGGIE3D_SRC_DIR)/%.asm,$(OBJ_DIR)/maggie3d_%.o,$(MAGGIE3D_ASMSRCS))
+PUFF_OBJ = $(OBJ_DIR)/puff.o
 
-OBJS = $(APP_OBJS) $(APP_ASMOBJS) $(SAGE_COBJS) $(SAGE_ASMOBJS) $(MAGGIE3D_COBJS) $(MAGGIE3D_ASMOBJS) $(SAGE_PREBUILT_OBJS)
+OBJS = $(APP_OBJS) $(APP_ASMOBJS) $(SAGE_COBJS) $(SAGE_ASMOBJS) $(MAGGIE3D_COBJS) $(MAGGIE3D_ASMOBJS) $(PUFF_OBJ) $(SAGE_PREBUILT_OBJS)
 
 ################################################################################
 # Options
@@ -227,6 +229,9 @@ $(OBJ_DIR) $(BIN_DIR) $(MAGGIELIB_OBJ_DIR) $(PACKAGE_ROOT):
 	$(MKDIR_P) $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(PUFF_OBJ): $(SRC_DIR)/third_party/puff.c $(SRC_DIR)/third_party/puff.h | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/spy_girl.o: $(SRC_DIR)/spy_config.h $(SRC_DIR)/spy_camera_timeline.h

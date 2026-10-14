@@ -6,6 +6,7 @@
 
 #include "spy_config.h"
 #include "spy_log.h"
+#include "spy_png.h"
 #include "spy_tunnel.h"
 #include "spy_tunnel_effects.h"
 #include "spy_tunnel_pattern_effects.h"
@@ -311,9 +312,7 @@ static BOOL SpyTunnelLoadPattern(const char *picture_name, UWORD pattern_index)
     return FALSE;
   }
 
-  SAGE_AutoRemapPicture(FALSE);
-  picture = SAGE_LoadPicture((STRPTR)picture_name);
-  SAGE_AutoRemapPicture(TRUE);
+  picture = SpyPngLoadPicture(picture_name);
   if (picture == NULL) {
     return FALSE;
   }
