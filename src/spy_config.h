@@ -5,7 +5,7 @@
 #define SPY_SCREEN_WIDTH              320
 #define SPY_SCREEN_HEIGHT             200
 #define SPY_SCREEN_DEPTH              16
-#define SPY_PRELOAD_BACKGROUND_FILENAME "PROGDIR:assets/gfx/loading_background.bmp"
+#define SPY_PRELOAD_BACKGROUND_FILENAME "assets/gfx/loading_background.bmp"
 #define SPY_PRELOAD_BACKGROUND_REVEAL_BLOCK_SIZE 16
 #define SPY_PRELOAD_BACKGROUND_REVEAL_SECONDS 2.0f
 #define SPY_PRELOAD_BLACK_PAUSE_TICKS 100 /* 2 seconds at 50Hz */
@@ -85,18 +85,18 @@
 #define SPY_TUNNEL_REVEAL_ROW_DELAY_STEPS 1
 
 /* Tunnel Assets */
-#define SPY_TUNNEL_FILENAME           "PROGDIR:assets/gfx/pattern_0.png"
+#define SPY_TUNNEL_FILENAME           "assets/gfx/pattern_0.png"
 #define SPY_TUNNEL_PATTERN_COUNT      6
 #define SPY_TUNNEL_PATTERN_FILENAMES \
-  "PROGDIR:assets/gfx/pattern_0.png", \
-  "PROGDIR:assets/gfx/pattern_1.png", \
-  "PROGDIR:assets/gfx/pattern_2.png", \
-  "PROGDIR:assets/gfx/pattern_3.png", \
-  "PROGDIR:assets/gfx/pattern_4.png", \
-  "PROGDIR:assets/gfx/pattern_5.png"
+  "assets/gfx/pattern_0.png", \
+  "assets/gfx/pattern_1.png", \
+  "assets/gfx/pattern_2.png", \
+  "assets/gfx/pattern_3.png", \
+  "assets/gfx/pattern_4.png", \
+  "assets/gfx/pattern_5.png"
 
 /* Logo Assets and choreography */
-#define SPY_LOGO_FILENAME             "PROGDIR:assets/gfx/logo.bmp"
+#define SPY_LOGO_FILENAME             "assets/gfx/logo.bmp"
 #define SPY_LOGO_SPRITE_BANK          0
 #define SPY_LOGO_WIDTH                192
 #define SPY_LOGO_HEIGHT               88
@@ -110,12 +110,12 @@
 #define SPY_LOGO_PIECE_DELAY_SECONDS  .3f
 #define SPY_LOGO_BOUNCE_SECONDS       2.25f
 #define SPY_LOGO_TRANSPARENT          0x00787878
-#define SPY_STREAM_FILENAME           "PROGDIR:assets/3d/spy_girl_dance.mpt"
-#define SPY_FONT_FILENAME             "PROGDIR:assets/fonts/font_16x18.bmp"
-#define SPY_LOG_FILENAME              "PROGDIR:spy_girl_log.txt"
+#define SPY_STREAM_FILENAME           "assets/3d/spy_girl_dance.mpt"
+#define SPY_FONT_FILENAME             "assets/fonts/font_16x18.bmp"
+#define SPY_LOG_FILENAME              "spy_girl_log.txt"
 
 /* Music */
-#define SPY_MUSIC_FILENAME      "PROGDIR:assets/music/back_in_town.mod"
+#define SPY_MUSIC_FILENAME      "assets/music/back_in_town.mod"
 #define SPY_MUSIC_SLOT          0
 
 /* Font */
