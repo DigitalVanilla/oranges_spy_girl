@@ -4,6 +4,7 @@
 #include <sage/sage_timer.h>
 
 #include "spy_anim.h"
+#include "spy_bmp.h"
 #include "spy_config.h"
 #include "spy_logo.h"
 #include "spy_log.h"
@@ -59,7 +60,7 @@ BOOL SpyLogoInit(void)
     return TRUE;
   }
 
-  logo_picture = SAGE_LoadPicture((STRPTR)SPY_LOGO_FILENAME);
+  logo_picture = SpyBmpLoadPicture(SPY_LOGO_FILENAME);
   if (logo_picture == NULL || logo_picture->bitmap == NULL) {
     SpyLog("Logo disabled: cannot load %s\n", SPY_LOGO_FILENAME);
     SpyLogoRelease();

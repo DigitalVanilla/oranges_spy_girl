@@ -1,6 +1,11 @@
 #include <exec/types.h>
 #include <dos/dos.h>
 #include <proto/dos.h>
+#include <proto/exec.h>
+#include <proto/icon.h>
+#include <workbench/icon.h>
+#include <workbench/startup.h>
+#include <workbench/workbench.h>
 #include <math.h>
 
 // Sage
@@ -37,6 +42,9 @@
 #define SPY_INTRO_DIZ_PATH "PROGDIR:file_id.diz"
 #define SPY_INTRO_DIZ_FALLBACK "file_id.diz"
 #define SPY_INTRO_PAUSE_TICKS 200
+#define SPY_DEBUG_ARGUMENT "DEBUG"
+
+struct Library *IconBase = NULL;
 
 // ******************************************
 // MAIN
@@ -68,6 +76,102 @@ static const SpyCameraPose spy_look_at_camera_pose = {
   SPY_LOOK_AT_CAMERA_YAW,
   SPY_LOOK_AT_CAMERA_PITCH
 };
+
+static UBYTE SpyAsciiUpper(UBYTE value)
+{
+  if (value >= 'a' && value <= 'z') {
+    return (UBYTE)(value - ('a' - 'A'));
+  }
+  return value;
+}
+
+static BOOL SpyStringsEqualIgnoreCase(const char *left, const char *right)
+{
+  if (left == NULL || right == NULL) {
+    return FALSE;
+  }
+
+  while (*left != 0 && *right != 0) {
+    if (SpyAsciiUpper((UBYTE)*left) != SpyAsciiUpper((UBYTE)*right)) {
+      return FALSE;
+    }
+    left++;
+    right++;
+  }
+
+  return *left == 0 && *right == 0;
+}
+
+static BOOL SpyIsDebugArgument(const char *argument)
+{
+  return SpyStringsEqualIgnoreCase(argument, SPY_DEBUG_ARGUMENT) ||
+    SpyStringsEqualIgnoreCase(argument, "--debug");
+}
+
+static BOOL SpyWorkbenchDebugRequested(char **argv)
+{
+  struct WBStartup *startup;
+  struct DiskObject *disk_object = NULL;
+  struct WBArg *program_arg;
+  BPTR previous_directory = 0;
+  BOOL directory_changed = FALSE;
+  BOOL debug_requested = FALSE;
+
+  if (argv == NULL) {
+    return FALSE;
+  }
+
+  startup = (struct WBStartup *)argv;
+  if (startup->sm_NumArgs < 1 || startup->sm_ArgList == NULL) {
+    return FALSE;
+  }
+
+  IconBase = OpenLibrary((STRPTR)ICONNAME, 36);
+  if (IconBase == NULL) {
+    return FALSE;
+  }
+
+  program_arg = &startup->sm_ArgList[0];
+  if (program_arg->wa_Lock != 0) {
+    previous_directory = CurrentDir(program_arg->wa_Lock);
+    directory_changed = TRUE;
+  }
+
+  disk_object = GetDiskObject(program_arg->wa_Name);
+
+  if (directory_changed) {
+    CurrentDir(previous_directory);
+  }
+
+  if (disk_object != NULL) {
+    debug_requested = FindToolType(
+      (CONST_STRPTR *)disk_object->do_ToolTypes,
+      (CONST_STRPTR)SPY_DEBUG_ARGUMENT
+    ) != NULL;
+    FreeDiskObject(disk_object);
+  }
+
+  CloseLibrary(IconBase);
+  IconBase = NULL;
+  return debug_requested;
+}
+
+static BOOL SpyFullDebugRequested(int argc, char **argv)
+{
+  int argument_index;
+
+  if (argc == 0) {
+    return SpyWorkbenchDebugRequested(argv);
+  }
+
+  for (argument_index = 1; argument_index < argc; argument_index++) {
+    if (SpyIsDebugArgument(argv[argument_index])) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
 
 static BOOL SpySetDemoModeCameraPose(SpyCameraPose *pose)
 {
@@ -345,6 +449,7 @@ int main(int argc, char* argv[]) {
   BOOL demo_mode_enabled = FALSE;
   BOOL maggie_stream_paused = FALSE;
   BOOL tunnel_visible = TRUE;
+  BOOL full_debug_enabled = SpyFullDebugRequested(argc, argv);
   SpyMaggieCameraMode camera_mode = SPY_CAMERA_MODE_DEFAULT;
   SpyFont text_font = { 0 };
   SpyTextLayer text_layer = { 0 };
@@ -358,7 +463,9 @@ int main(int argc, char* argv[]) {
   SpyRunIntroShell();
 
   SpyLogOpen(SPY_LOG_FILENAME);
+  SAGE_SetLogLevel(full_debug_enabled ? SLOG_DEBUG : SLOG_INFO);
   SpyLog("Spy Girl starting\n");
+  SpyLog("Full debug logging: %s\n", full_debug_enabled ? "ON" : "OFF");
 
   if (!SpyCameraTimelineEvaluate(
     spy_camera_timeline,

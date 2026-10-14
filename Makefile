@@ -54,6 +54,7 @@ APP_CSRCS = \
 	$(SRC_DIR)/sage_optional_modules.c \
 	$(SRC_DIR)/spy_anim.c \
 	$(SRC_DIR)/spy_audio.c \
+	$(SRC_DIR)/spy_bmp.c \
 	$(SRC_DIR)/spy_camera_timeline.c \
 	$(SRC_DIR)/spy_debug.c \
 	$(SRC_DIR)/spy_input.c \
@@ -173,7 +174,6 @@ OBJS = $(APP_OBJS) $(APP_ASMOBJS) $(SAGE_COBJS) $(SAGE_ASMOBJS) $(MAGGIE3D_COBJS
 # Options
 ################################################################################
 
-SAGE_DEBUG ?= 0
 SAGE_SAFE ?= 0
 
 CPUFLAGS = -m68060 -m68881
@@ -183,7 +183,7 @@ MAGGIELIB_ASFLAGS = -m68080 -m68882 -quiet -Fhunk -I $(GCC_TARGET)/ndk-include
 CFLAGS = $(CPUFLAGS) \
 	-O2 \
 	-DPI=3.14159265358979323846 \
-	-D_SAGE_DEBUG_MODE_=$(SAGE_DEBUG) \
+	-D_SAGE_DEBUG_MODE_=1 \
 	-D_SAGE_SAFE_MODE_=$(SAGE_SAFE) \
 	-I$(SAGE_DIR)/include \
 	-I$(MAGGIELIB_INC_DIR) \
@@ -194,7 +194,7 @@ CFLAGS = $(CPUFLAGS) \
 SCREEN_CFLAGS = $(CPUFLAGS) \
 	-O0 \
 	-DPI=3.14159265358979323846 \
-	-D_SAGE_DEBUG_MODE_=$(SAGE_DEBUG) \
+	-D_SAGE_DEBUG_MODE_=1 \
 	-D_SAGE_SAFE_MODE_=$(SAGE_SAFE) \
 	-I$(SAGE_DIR)/include \
 	-I$(MAGGIELIB_INC_DIR) \

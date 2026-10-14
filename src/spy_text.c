@@ -1,6 +1,7 @@
 #include <exec/types.h>
 #include <sage/sage.h>
 
+#include "spy_bmp.h"
 #include "spy_config.h"
 #include "spy_text.h"
 
@@ -49,7 +50,7 @@ BOOL SpyTextLoadFont(
     return FALSE;
   }
 
-  font->picture = SAGE_LoadPicture((STRPTR)filename);
+  font->picture = SpyBmpLoadPicture(filename);
   if (font->picture == NULL || font->picture->bitmap == NULL) {
     SpyTextReleaseFont(font);
     return FALSE;

@@ -3,6 +3,7 @@
 #include <sage/sage.h>
 #include <sage/sage_timer.h>
 
+#include "spy_bmp.h"
 #include "spy_config.h"
 #include "spy_log.h"
 #include "spy_preload.h"
@@ -52,7 +53,7 @@ BOOL SpyPreloadInit(void)
     SpyLog("Preload background reveal timer unavailable; reveal will follow progress updates\n");
   }
 
-  preload_background = SAGE_LoadPicture((STRPTR)SPY_PRELOAD_BACKGROUND_FILENAME);
+  preload_background = SpyBmpLoadPicture(SPY_PRELOAD_BACKGROUND_FILENAME);
   if (preload_background == NULL || preload_background->bitmap == NULL) {
     SpyLog("Preload background unavailable: cannot load %s\n", SPY_PRELOAD_BACKGROUND_FILENAME);
     SpyPreloadRelease();
