@@ -1,5 +1,4 @@
 #include <exec/types.h>
-#include <sage/sage_error.h>
 #include <sage/sage_screen.h>
 #include <sage/sage_timer.h>
 
@@ -18,10 +17,6 @@ BOOL SpyDebugConfigureOverlay(void)
 {
   BOOL configured = TRUE;
 
-  if (!SAGE_SetFont((STRPTR)SPY_DEBUG_FONT_NAME, SPY_DEBUG_FONT_SIZE)) {
-    configured = FALSE;
-    SAGE_SetError(SERR_NO_ERROR);
-  }
   if (!SAGE_SetColor(SPY_DEBUG_BACK_PEN, SPY_DEBUG_BACK_COLOR)) {
     configured = FALSE;
   }
@@ -112,7 +107,7 @@ void SpyDrawDebugOverlay(
 
   SAGE_PrintFText(
     SPY_DEBUG_SCREEN_X,
-    SPY_DEBUG_SCREEN_Y + SPY_DEBUG_FONT_SIZE + 5,
+    SPY_DEBUG_SCREEN_Y + SPY_DEBUG_LINE_HEIGHT + 5,
     "%dfps sec:%lu frm:%lu/%lu tk/frm:%lu",
     fps,
     animation_second,
@@ -122,7 +117,7 @@ void SpyDrawDebugOverlay(
   );
   SAGE_PrintFText(
     SPY_DEBUG_SCREEN_X,
-    SPY_DEBUG_SCREEN_Y + SPY_DEBUG_FONT_SIZE + SPY_DEBUG_LINE_HEIGHT + 9,
+    SPY_DEBUG_SCREEN_Y + (SPY_DEBUG_LINE_HEIGHT * 2) + 9,
     "cam:%s x:%c%ld.%02ld y:%c%ld.%02ld z:%c%ld.%02ld",
     camera_mode_name,
     xsign, xwhole, xfrac,
@@ -131,7 +126,7 @@ void SpyDrawDebugOverlay(
   );
   SAGE_PrintFText(
     SPY_DEBUG_SCREEN_X,
-    SPY_DEBUG_SCREEN_Y + SPY_DEBUG_FONT_SIZE + (SPY_DEBUG_LINE_HEIGHT * 2) + 12,
+    SPY_DEBUG_SCREEN_Y + (SPY_DEBUG_LINE_HEIGHT * 3) + 12,
     "yaw:%c%ld.%02ld pitch:%c%ld.%02ld stream:%s",
     yawsign, yawwhole, yawfrac,
     pitchsign, pitchwhole, pitchfrac,

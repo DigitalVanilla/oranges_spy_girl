@@ -43,6 +43,7 @@
 #define SPY_INTRO_DIZ_FALLBACK "file_id.diz"
 #define SPY_INTRO_PAUSE_TICKS 200
 #define SPY_DEBUG_ARGUMENT "DEBUG"
+#define SPY_REFRESH_PROBE_DURATION_US (2UL * STIM_TICKS)
 
 struct Library *IconBase = NULL;
 
@@ -427,9 +428,12 @@ static void SpyRunIntroShell(void)
 int main(int argc, char* argv[]) {
   SAGE_Timer *fps_timer = NULL;
   SAGE_Timer *demo_timer = NULL;
+  SAGE_Timer *refresh_probe_timer = NULL;
   ULONG fps_elapsed = 0;
   ULONG demo_elapsed_us = 0;
   ULONG stream_elapsed_us = 0;
+  ULONG refresh_probe_elapsed_us = 0;
+  ULONG refresh_probe_start_vbl = 0;
   ULONG maggie_ticks_per_frame = 1;
   ULONG maggie_appear_us = SpySecondsToMicros(SPY_MAGGIE_APPEAR_SECONDS);
   ULONG text_start_delay_us = SpySecondsToMicros(SPY_TEXT_START_DELAY_SECONDS);
@@ -504,10 +508,14 @@ int main(int argc, char* argv[]) {
   screen_open = TRUE;
 
   if (!SpyDebugConfigureOverlay()) {
-    SpyLog("Visual debug font or style unavailable, using the closest available settings\n");
+    SpyLog("Visual debug style unavailable, using the closest available settings\n");
   }
 
-  SAGE_VerticalSynchro(TRUE);
+  if (!SAGE_VerticalSynchro(FALSE) || !SAGE_MaximumFPS(SPY_SCREEN_MAX_FPS)) {
+    SpyReportSageFailure("Configure 50 FPS screen pacing");
+    result = 1;
+    goto shutdown;
+  }
   SAGE_HideMouse();
 
   if (!SpyPreloadInit()) {
@@ -667,6 +675,15 @@ int main(int argc, char* argv[]) {
   }
   SpyPreloadRelease();
   SAGE_Pause(SPY_PRELOAD_BLACK_PAUSE_TICKS);
+
+  refresh_probe_timer = SAGE_AllocTimer();
+  if (refresh_probe_timer != NULL) {
+    SAGE_ElapsedTime(refresh_probe_timer);
+    refresh_probe_start_vbl = SAGE_GetVblCount();
+  } else {
+    SpyLog("Display timing probe unavailable\n");
+  }
+
   SpyAudioStartMusic();
   SpyTunnelRestartIntroReveal();
 
@@ -677,6 +694,36 @@ int main(int argc, char* argv[]) {
 
   while(!must_exit) {
     ULONG frame_elapsed_us = 0;
+
+    if (refresh_probe_timer != NULL) {
+      ULONG elapsed = SAGE_ElapsedTime(refresh_probe_timer);
+
+      if (elapsed == STIM_OVERFLOW) {
+        refresh_probe_elapsed_us = 0;
+        refresh_probe_start_vbl = SAGE_GetVblCount();
+      } else {
+        refresh_probe_elapsed_us += SpySageTimeToMicros(elapsed);
+        if (refresh_probe_elapsed_us >= SPY_REFRESH_PROBE_DURATION_US) {
+          ULONG refresh_probe_vblanks = SAGE_GetVblCount() - refresh_probe_start_vbl;
+          ULONG refresh_probe_hz = (ULONG)(
+            (((double)refresh_probe_vblanks * (double)STIM_TICKS) /
+              (double)refresh_probe_elapsed_us) + 0.5
+          );
+
+          SpyLog(
+            "Display timing: %ldx%ldx%ld, VBlank=%lu Hz (%lu VBL in %lu us)\n",
+            (LONG)SPY_SCREEN_WIDTH,
+            (LONG)SPY_SCREEN_HEIGHT,
+            (LONG)SPY_SCREEN_DEPTH,
+            refresh_probe_hz,
+            refresh_probe_vblanks,
+            refresh_probe_elapsed_us
+          );
+          SAGE_ReleaseTimer(refresh_probe_timer);
+          refresh_probe_timer = NULL;
+        }
+      }
+    }
 
     if (demo_timer != NULL) {
       ULONG elapsed = SAGE_ElapsedTime(demo_timer);
@@ -882,6 +929,11 @@ shutdown:
     SpyLog("Shutdown: release demo timer\n");
     SAGE_ReleaseTimer(demo_timer);
     demo_timer = NULL;
+  }
+  if (refresh_probe_timer != NULL) {
+    SpyLog("Shutdown: release display timing probe\n");
+    SAGE_ReleaseTimer(refresh_probe_timer);
+    refresh_probe_timer = NULL;
   }
   SpyLog("Shutdown: release audio\n");
   SpyAudioRelease();
