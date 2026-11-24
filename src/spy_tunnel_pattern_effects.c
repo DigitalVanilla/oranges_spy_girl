@@ -5,7 +5,6 @@
 #include "spy_tunnel_pattern_effects.h"
 #include "spy_tunnel_reveal.h"
 
-static SAGE_Timer *pattern_effect_timer = NULL;
 static ULONG pattern_effect_duration_us = 0;
 static ULONG pattern_effect_interval_us = 0;
 static ULONG pattern_effect_since_start_us = 0;
@@ -27,11 +26,6 @@ static ULONG SpyTunnelPatternEffectsSecondsToMicros(float seconds)
   }
 
   return (ULONG)((seconds * (float)STIM_TICKS) + 0.5f);
-}
-
-static ULONG SpyTunnelPatternEffectsSageTimeToMicros(ULONG sage_time)
-{
-  return ((sage_time >> STIM_SECONDS_SHIFT) * STIM_TICKS) + (sage_time & STIM_MICRO_MASK);
 }
 
 static SpyTunnelPatternEffectMode SpyTunnelPatternEffectsConfiguredMode(void)
@@ -399,32 +393,14 @@ BOOL SpyTunnelPatternEffectsInit(void)
     pattern_effect_interval_us > 0 &&
     (pattern_effect_mode == SPY_TUNNEL_PATTERN_EFFECT_CUT || pattern_effect_duration_us > 0);
 
-  if (!pattern_effect_enabled) {
-    return TRUE;
-  }
-
-  pattern_effect_timer = SAGE_AllocTimer();
-  if (pattern_effect_timer == NULL) {
-    pattern_effect_enabled = FALSE;
-    return TRUE;
-  }
-
-  SAGE_ElapsedTime(pattern_effect_timer);
   return TRUE;
 }
 
-BOOL SpyTunnelPatternEffectsUpdate(BOOL paused)
+BOOL SpyTunnelPatternEffectsUpdate(BOOL paused, ULONG delta_us)
 {
-  ULONG elapsed;
-  ULONG delta_us;
   BOOL switch_pattern = FALSE;
 
-  if (!pattern_effect_enabled || pattern_effect_timer == NULL) {
-    return FALSE;
-  }
-
-  elapsed = SAGE_ElapsedTime(pattern_effect_timer);
-  if (elapsed == STIM_OVERFLOW) {
+  if (!pattern_effect_enabled) {
     return FALSE;
   }
 
@@ -433,7 +409,6 @@ BOOL SpyTunnelPatternEffectsUpdate(BOOL paused)
     return FALSE;
   }
 
-  delta_us = SpyTunnelPatternEffectsSageTimeToMicros(elapsed);
   pattern_effect_since_start_us += delta_us;
 
   if (pattern_effect_active) {
@@ -539,11 +514,6 @@ void SpyTunnelPatternEffectsApplyTransition(
 
 void SpyTunnelPatternEffectsRelease(void)
 {
-  if (pattern_effect_timer != NULL) {
-    SAGE_ReleaseTimer(pattern_effect_timer);
-    pattern_effect_timer = NULL;
-  }
-
   pattern_effect_enabled = FALSE;
   pattern_effect_active = FALSE;
   pattern_effect_pattern_switched = FALSE;

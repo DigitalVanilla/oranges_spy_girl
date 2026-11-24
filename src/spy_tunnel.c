@@ -20,7 +20,6 @@
 #define TUNNEL_FRAME_FP_SHIFT 8
 #define TUNNEL_FRAME_FP_ONE (1UL << TUNNEL_FRAME_FP_SHIFT)
 #define TUNNEL_FRAME_FP_MASK ((TUNNEL_MAX_FRAMES * TUNNEL_FRAME_FP_ONE) - 1UL)
-#define TUNNEL_FALLBACK_FRAME_US (STIM_TICKS / SPY_TUNNEL_MOTION_FPS)
 #define TUNNEL_MAX_DELTA_US 100000UL
 #define TUNNEL_TWO_PI 6.28318530717958647692f
 #define TUNNEL_SCROLL_X_CYCLES 34
@@ -77,7 +76,7 @@ static WORD shift_look_y_table[TUNNEL_MAX_FRAMES];
 static WORD shift_x_table[TUNNEL_MAX_FRAMES];
 static WORD shift_y_table[TUNNEL_MAX_FRAMES];
 
-static SAGE_Timer *motion_timer = NULL;
+static ULONG tunnel_last_update_us;
 static UWORD current_pattern = 0;
 static UWORD pattern_effect_from_pattern = 0;
 static ULONG motion_phase_fp = 0;
@@ -193,11 +192,6 @@ static void SpyTunnelClearCore(UWORD *target, ULONG target_stride)
   }
 }
 
-static ULONG SpyTunnelSageTimeToMicros(ULONG sage_time)
-{
-  return ((sage_time >> STIM_SECONDS_SHIFT) * STIM_TICKS) + (sage_time & STIM_MICRO_MASK);
-}
-
 static WORD SpyTunnelLerpWord(WORD start, WORD end, UWORD fraction)
 {
   return (WORD)(start + (((LONG)(end - start) * (LONG)fraction) >> TUNNEL_FRAME_FP_SHIFT));
@@ -222,27 +216,15 @@ static WORD SpyTunnelLerpWrapped(WORD start, WORD end, WORD modulo, UWORD fracti
   return (WORD)value;
 }
 
-static void SpyTunnelAdvanceMotionPhase(void)
+static void SpyTunnelAdvanceMotionPhase(ULONG elapsed_us)
 {
-  ULONG elapsed_us = TUNNEL_FALLBACK_FRAME_US;
-  ULONG elapsed;
   ULONG frame_step_fp;
-
-  if (motion_timer != NULL) {
-    elapsed = SAGE_ElapsedTime(motion_timer);
-    if (elapsed != STIM_OVERFLOW) {
-      elapsed_us = SpyTunnelSageTimeToMicros(elapsed);
-    }
-  }
 
   if (elapsed_us > TUNNEL_MAX_DELTA_US) {
     elapsed_us = TUNNEL_MAX_DELTA_US;
   }
 
   frame_step_fp = ((elapsed_us * SPY_TUNNEL_MOTION_FPS * TUNNEL_FRAME_FP_ONE) + (STIM_TICKS / 2)) / STIM_TICKS;
-  if (frame_step_fp == 0) {
-    frame_step_fp = 1;
-  }
   motion_phase_fp = (motion_phase_fp + frame_step_fp) & TUNNEL_FRAME_FP_MASK;
 }
 
@@ -420,16 +402,11 @@ BOOL SpyTunnelInit(const char *picture_name)
   }
 
   motion_phase_fp = 0;
+  tunnel_last_update_us = 0;
   current_pattern = 0;
   pattern_effect_from_pattern = 0;
   reveal_source_ready = FALSE;
   reveal_source_render_countdown = 0;
-  motion_timer = SAGE_AllocTimer();
-  if (motion_timer != NULL) {
-    SAGE_ElapsedTime(motion_timer);
-  } else {
-    SpyLog("Tunnel motion timer unavailable, using frame-based fallback\n");
-  }
   SpyTunnelEffectsInit();
   SpyTunnelPatternEffectsInit();
   return TRUE;
@@ -437,17 +414,19 @@ BOOL SpyTunnelInit(const char *picture_name)
 
 void SpyTunnelRestartIntroReveal(void)
 {
+  tunnel_last_update_us = 0;
   reveal_source_ready = FALSE;
   reveal_source_render_countdown = 0;
   SpyTunnelEffectsInit();
 }
 
-void SpyTunnelRenderFrame(UWORD tunnel_y)
+void SpyTunnelRenderFrame(UWORD tunnel_y, ULONG demo_elapsed_us)
 {
   int shift_x, shift_y, shift_look_x, shift_look_y;
   UWORD table_index, next_table_index, frame_fraction;
   UWORD *target_buffer;
   ULONG target_stride;
+  ULONG elapsed_us;
   BOOL intro_blocks_pattern_effects;
 
   if (!SpyTunnelGetTargetBuffer(&target_buffer, &target_stride, tunnel_y)) {
@@ -456,15 +435,17 @@ void SpyTunnelRenderFrame(UWORD tunnel_y)
 
   intro_blocks_pattern_effects =
     SpyTunnelEffectsIntroIsHidden() || SpyTunnelEffectsIntroIsActive();
-  SpyTunnelEffectsUpdate();
-  if (SpyTunnelPatternEffectsUpdate(intro_blocks_pattern_effects)) {
+  elapsed_us = demo_elapsed_us - tunnel_last_update_us;
+  tunnel_last_update_us = demo_elapsed_us;
+  SpyTunnelEffectsUpdate(elapsed_us);
+  if (SpyTunnelPatternEffectsUpdate(intro_blocks_pattern_effects, elapsed_us)) {
     pattern_effect_from_pattern = current_pattern;
     reveal_source_ready = FALSE;
     reveal_source_render_countdown = 0;
     SpyTunnelNextPattern();
   }
 
-  SpyTunnelAdvanceMotionPhase();
+  SpyTunnelAdvanceMotionPhase(elapsed_us);
   table_index = (UWORD)(motion_phase_fp >> TUNNEL_FRAME_FP_SHIFT);
   next_table_index = (table_index + 1) & (TUNNEL_MAX_FRAMES - 1);
   frame_fraction = (UWORD)(motion_phase_fp & (TUNNEL_FRAME_FP_ONE - 1));
@@ -605,10 +586,4 @@ void SpyTunnelRelease(void)
 {
   SpyTunnelPatternEffectsRelease();
   SpyTunnelEffectsRelease();
-
-  if (motion_timer != NULL) {
-    SAGE_ReleaseTimer(motion_timer);
-    motion_timer = NULL;
-  }
-
 }

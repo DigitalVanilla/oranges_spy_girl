@@ -14,7 +14,7 @@ typedef enum SpyTunnelPatternEffectMode {
 } SpyTunnelPatternEffectMode;
 
 BOOL SpyTunnelPatternEffectsInit(void);
-BOOL SpyTunnelPatternEffectsUpdate(BOOL paused);
+BOOL SpyTunnelPatternEffectsUpdate(BOOL paused, ULONG delta_us);
 BOOL SpyTunnelPatternEffectsIsActive(void);
 BOOL SpyTunnelPatternEffectsNeedsSource(void);
 void SpyTunnelPatternEffectsApplyTransition(

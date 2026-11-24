@@ -5,7 +5,6 @@
 #include "spy_tunnel_effects.h"
 #include "spy_tunnel_reveal.h"
 
-static SAGE_Timer *intro_timer = NULL;
 static ULONG intro_hold_us = 0;
 static ULONG intro_reveal_us = 0;
 static ULONG intro_elapsed_us = 0;
@@ -22,11 +21,6 @@ static ULONG SpyTunnelEffectsSecondsToMicros(float seconds)
   return (ULONG)((seconds * (float)STIM_TICKS) + 0.5f);
 }
 
-static ULONG SpyTunnelEffectsSageTimeToMicros(ULONG sage_time)
-{
-  return ((sage_time >> STIM_SECONDS_SHIFT) * STIM_TICKS) + (sage_time & STIM_MICRO_MASK);
-}
-
 BOOL SpyTunnelEffectsInit(void)
 {
   SpyTunnelEffectsRelease();
@@ -38,36 +32,15 @@ BOOL SpyTunnelEffectsInit(void)
   intro_hidden = intro_reveal_us > 0 && intro_hold_us > 0;
   intro_active = intro_reveal_us > 0 && intro_hold_us == 0;
 
-  if (!intro_hidden && !intro_active) {
-    return TRUE;
-  }
-
-  intro_timer = SAGE_AllocTimer();
-  if (intro_timer == NULL) {
-    intro_hidden = FALSE;
-    intro_active = FALSE;
-    return TRUE;
-  }
-
-  SAGE_ElapsedTime(intro_timer);
   return TRUE;
 }
 
-void SpyTunnelEffectsUpdate(void)
+void SpyTunnelEffectsUpdate(ULONG delta_us)
 {
-  ULONG elapsed;
-  ULONG delta_us;
-
-  if ((!intro_hidden && !intro_active) || intro_timer == NULL) {
+  if (!intro_hidden && !intro_active) {
     return;
   }
 
-  elapsed = SAGE_ElapsedTime(intro_timer);
-  if (elapsed == STIM_OVERFLOW) {
-    return;
-  }
-
-  delta_us = SpyTunnelEffectsSageTimeToMicros(elapsed);
   if (intro_hidden) {
     intro_elapsed_us += delta_us;
     if (intro_elapsed_us >= intro_hold_us) {
@@ -119,11 +92,6 @@ void SpyTunnelEffectsApplyIntroReveal(
 
 void SpyTunnelEffectsRelease(void)
 {
-  if (intro_timer != NULL) {
-    SAGE_ReleaseTimer(intro_timer);
-    intro_timer = NULL;
-  }
-
   intro_hidden = FALSE;
   intro_active = FALSE;
   intro_hold_us = 0;

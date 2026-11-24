@@ -44,6 +44,7 @@
 #define SPY_INTRO_PAUSE_TICKS 200
 #define SPY_DEBUG_ARGUMENT "DEBUG"
 #define SPY_REFRESH_PROBE_DURATION_US (2UL * STIM_TICKS)
+#define SPY_TIMING_LOG_INTERVAL_US (5UL * STIM_TICKS)
 
 struct Library *IconBase = NULL;
 
@@ -426,11 +427,12 @@ static void SpyRunIntroShell(void)
 }
 
 int main(int argc, char* argv[]) {
-  SAGE_Timer *fps_timer = NULL;
-  SAGE_Timer *demo_timer = NULL;
+  SAGE_VBlankClock demo_clock;
   SAGE_Timer *refresh_probe_timer = NULL;
   ULONG fps_elapsed = 0;
   ULONG demo_elapsed_us = 0;
+  ULONG demo_start_vbl;
+  ULONG last_timing_log_us = 0;
   ULONG stream_elapsed_us = 0;
   ULONG refresh_probe_elapsed_us = 0;
   ULONG refresh_probe_start_vbl = 0;
@@ -450,6 +452,7 @@ int main(int argc, char* argv[]) {
   BOOL demo_mode_layer_ready = FALSE;
   BOOL must_exit = FALSE;
   BOOL debug_overlay_enabled = FALSE;
+  BOOL overlay_traced = FALSE;
   BOOL demo_mode_enabled = FALSE;
   BOOL maggie_stream_paused = FALSE;
   BOOL tunnel_visible = TRUE;
@@ -508,11 +511,11 @@ int main(int argc, char* argv[]) {
   screen_open = TRUE;
 
   if (!SpyDebugConfigureOverlay()) {
-    SpyLog("Visual debug style unavailable, using the closest available settings\n");
+    SpyLog("Visual debug unavailable: no compatible 8x8 system font\n");
   }
 
-  if (!SAGE_VerticalSynchro(FALSE) || !SAGE_MaximumFPS(SPY_SCREEN_MAX_FPS)) {
-    SpyReportSageFailure("Configure 50 FPS screen pacing");
+  if (!SAGE_VerticalSynchro(TRUE)) {
+    SpyReportSageFailure("Configure VBlank screen pacing");
     result = 1;
     goto shutdown;
   }
@@ -623,18 +626,6 @@ int main(int argc, char* argv[]) {
     goto shutdown;
   }
 
-  fps_timer = SAGE_AllocTimer();
-  if (fps_timer != NULL) {
-    SAGE_ElapsedTime(fps_timer);
-  }
-
-  demo_timer = SAGE_AllocTimer();
-  if (demo_timer != NULL) {
-    SAGE_ElapsedTime(demo_timer);
-  } else {
-    SpyLog("Demo timer unavailable, choreography will stay at the first frame\n");
-  }
-
   SpyTypewriterInit(
     &typewriter,
     spy_text_pages,
@@ -687,14 +678,20 @@ int main(int argc, char* argv[]) {
   SpyAudioStartMusic();
   SpyTunnelRestartIntroReveal();
 
-  demo_elapsed_us = 0;
-  if (demo_timer != NULL) {
-    SAGE_ElapsedTime(demo_timer);
+  if (!SAGE_ResetVBlankClock(&demo_clock, SPY_SYSTEM_VBLANK_HZ)) {
+    SpyLog("Could not initialize the visual VBlank clock\n");
+    result = 1;
+    goto shutdown;
   }
+  demo_start_vbl = demo_clock.last_vblank;
+  SpyLog("Visual clock: system VBlank at %lu Hz\n", demo_clock.vblank_hz);
 
   while(!must_exit) {
-    ULONG frame_elapsed_us = 0;
+    ULONG frame_elapsed_us = SAGE_ElapsedVBlankUs(&demo_clock);
+    ULONG demo_vblanks = demo_clock.last_vblank - demo_start_vbl;
+    BOOL trace_overlay = FALSE;
 
+    demo_elapsed_us += frame_elapsed_us;
     if (refresh_probe_timer != NULL) {
       ULONG elapsed = SAGE_ElapsedTime(refresh_probe_timer);
 
@@ -711,7 +708,7 @@ int main(int argc, char* argv[]) {
           );
 
           SpyLog(
-            "Display timing: %ldx%ldx%ld, VBlank=%lu Hz (%lu VBL in %lu us)\n",
+            "Display timing: %ldx%ldx%ld, system VBlank vs timer.device=%lu Hz (%lu VBL in %lu us)\n",
             (LONG)SPY_SCREEN_WIDTH,
             (LONG)SPY_SCREEN_HEIGHT,
             (LONG)SPY_SCREEN_DEPTH,
@@ -723,17 +720,6 @@ int main(int argc, char* argv[]) {
           refresh_probe_timer = NULL;
         }
       }
-    }
-
-    if (demo_timer != NULL) {
-      ULONG elapsed = SAGE_ElapsedTime(demo_timer);
-      if (elapsed != STIM_OVERFLOW) {
-        frame_elapsed_us = SpySageTimeToMicros(elapsed);
-        demo_elapsed_us += frame_elapsed_us;
-      }
-    } else {
-      demo_elapsed_us = 0;
-      stream_elapsed_us = 0;
     }
 
     {
@@ -794,7 +780,7 @@ int main(int argc, char* argv[]) {
         result = 1;
         goto shutdown;
       }
-      SpyTunnelRenderFrame(tunnel_y);
+      SpyTunnelRenderFrame(tunnel_y, demo_elapsed_us);
     }
     
     // render the logo
@@ -860,8 +846,24 @@ int main(int argc, char* argv[]) {
     }
 
     // display the debug infos
-    fps_value = SpyUpdateFpsCounter(fps_timer, &fps_frames, &fps_elapsed, fps_value);
+    fps_value = SpyUpdateFpsCounter(frame_elapsed_us, &fps_frames, &fps_elapsed, fps_value);
+    if (full_debug_enabled && demo_elapsed_us - last_timing_log_us >= SPY_TIMING_LOG_INTERVAL_US) {
+      last_timing_log_us = demo_elapsed_us;
+      SpyLog(
+        "Playback timing: demo_us=%lu stream_us=%lu vbl=%lu frm=%lu/%lu tk/frm=%lu\n",
+        demo_elapsed_us,
+        stream_elapsed_us,
+        demo_vblanks,
+        SpyMaggieGetCurrentFrame(),
+        SpyMaggieGetFrameCount(),
+        maggie_ticks_per_frame
+      );
+    }
     if (debug_overlay_enabled) {
+      trace_overlay = full_debug_enabled && !overlay_traced;
+      if (trace_overlay) {
+        SpyLog("Overlay: drawing cached font into back buffer\n");
+      }
       SpyDrawDebugOverlay(
         fps_value,
         &camera_pose.position,
@@ -871,8 +873,14 @@ int main(int argc, char* argv[]) {
         SpyMaggieGetFrameCount(),
         maggie_ticks_per_frame,
         maggie_stream_paused,
-        SpyMaggieCameraModeName(camera_mode)
+        SpyMaggieCameraModeName(camera_mode),
+        demo_elapsed_us,
+        demo_vblanks,
+        trace_overlay
       );
+      if (trace_overlay) {
+        SpyLog("Overlay: draw returned, refreshing screen\n");
+      }
     }
  
     if (!SAGE_RefreshScreen()) {
@@ -883,6 +891,10 @@ int main(int argc, char* argv[]) {
         result = 1;
         goto shutdown;
       }
+    }
+    if (trace_overlay) {
+      SpyLog("Overlay: screen refresh returned\n");
+      overlay_traced = TRUE;
     }
   }
 
@@ -919,16 +931,6 @@ shutdown:
     SpyLog("Shutdown: release tunnel\n");
     SpyTunnelRelease();
     tunnel_ready = FALSE;
-  }
-  if (fps_timer != NULL) {
-    SpyLog("Shutdown: release fps timer\n");
-    SAGE_ReleaseTimer(fps_timer);
-    fps_timer = NULL;
-  }
-  if (demo_timer != NULL) {
-    SpyLog("Shutdown: release demo timer\n");
-    SAGE_ReleaseTimer(demo_timer);
-    demo_timer = NULL;
   }
   if (refresh_probe_timer != NULL) {
     SpyLog("Shutdown: release display timing probe\n");

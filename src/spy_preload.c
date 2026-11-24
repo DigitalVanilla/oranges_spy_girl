@@ -13,15 +13,9 @@
 #define SPY_PRELOAD_BAR_BORDER  2
 
 static SAGE_Picture *preload_background = NULL;
-static SAGE_Timer *preload_reveal_timer = NULL;
+static SAGE_VBlankClock preload_reveal_clock;
 static ULONG preload_reveal_elapsed_us = 0;
 static ULONG preload_reveal_duration_us = 0;
-static BOOL preload_reveal_manual = FALSE;
-
-static ULONG SpyPreloadSageTimeToMicros(ULONG sage_time)
-{
-  return ((sage_time >> STIM_SECONDS_SHIFT) * STIM_TICKS) + (sage_time & STIM_MICRO_MASK);
-}
 
 static ULONG SpyPreloadSecondsToMicros(float seconds)
 {
@@ -45,14 +39,6 @@ BOOL SpyPreloadInit(void)
 
   SpyPreloadRelease();
   preload_reveal_duration_us = SpyPreloadSecondsToMicros(SPY_PRELOAD_BACKGROUND_REVEAL_SECONDS);
-  preload_reveal_elapsed_us = 0;
-  preload_reveal_timer = SAGE_AllocTimer();
-  if (preload_reveal_timer != NULL) {
-    SAGE_ElapsedTime(preload_reveal_timer);
-  } else {
-    SpyLog("Preload background reveal timer unavailable; reveal will follow progress updates\n");
-  }
-
   preload_background = SpyBmpLoadPicture(SPY_PRELOAD_BACKGROUND_FILENAME);
   if (preload_background == NULL || preload_background->bitmap == NULL) {
     SpyLog("Preload background unavailable: cannot load %s\n", SPY_PRELOAD_BACKGROUND_FILENAME);
@@ -71,39 +57,27 @@ BOOL SpyPreloadInit(void)
     screen != NULL ? screen->height : 0
   );
 
-  preload_reveal_elapsed_us = 0;
-  if (preload_reveal_timer != NULL) {
-    SAGE_ElapsedTime(preload_reveal_timer);
-  }
-
-  return TRUE;
+  return SAGE_ResetVBlankClock(&preload_reveal_clock, SPY_SYSTEM_VBLANK_HZ);
 }
 
 static void SpyPreloadUpdateRevealTimer(void)
 {
-  ULONG elapsed;
+  ULONG remaining, delta_us;
 
-  if (preload_reveal_manual || preload_reveal_timer == NULL || preload_reveal_duration_us == 0) {
+  if (preload_reveal_elapsed_us >= preload_reveal_duration_us) {
     return;
   }
 
-  elapsed = SAGE_ElapsedTime(preload_reveal_timer);
-  if (elapsed == STIM_OVERFLOW) {
-    preload_reveal_elapsed_us = preload_reveal_duration_us;
-    return;
-  }
-
-  preload_reveal_elapsed_us += SpyPreloadSageTimeToMicros(elapsed);
-  if (preload_reveal_elapsed_us > preload_reveal_duration_us) {
-    preload_reveal_elapsed_us = preload_reveal_duration_us;
-  }
+  remaining = preload_reveal_duration_us - preload_reveal_elapsed_us;
+  delta_us = SAGE_ElapsedVBlankUs(&preload_reveal_clock);
+  preload_reveal_elapsed_us += delta_us < remaining ? delta_us : remaining;
 }
 
 static UWORD SpyPreloadRevealPercent(UWORD progress_percent)
 {
   ULONG percent;
 
-  if (preload_reveal_timer == NULL || preload_reveal_duration_us == 0) {
+  if (preload_reveal_duration_us == 0) {
     return progress_percent;
   }
 
@@ -356,48 +330,23 @@ BOOL SpyPreloadDraw(UWORD percent)
 
 BOOL SpyPreloadRunBackgroundReveal(UWORD percent)
 {
-  ULONG frame_count;
-  ULONG frame;
-
-  if (preload_reveal_duration_us == 0) {
-    return SpyPreloadDraw(percent);
+  preload_reveal_elapsed_us = 0;
+  if (!SAGE_ResetVBlankClock(&preload_reveal_clock, SPY_SYSTEM_VBLANK_HZ)) {
+    return FALSE;
   }
-
-  frame_count = (preload_reveal_duration_us + 19999UL) / 20000UL;
-  if (frame_count == 0) {
-    frame_count = 1;
-  }
-
-  preload_reveal_manual = TRUE;
-  for (frame = 0; frame <= frame_count; frame++) {
-    preload_reveal_elapsed_us = (preload_reveal_duration_us * frame) / frame_count;
+  do {
     if (!SpyPreloadDraw(percent)) {
-      preload_reveal_manual = FALSE;
       return FALSE;
     }
-    if (frame < frame_count) {
-      SAGE_Pause(1);
-    }
-  }
-
-  preload_reveal_manual = FALSE;
-  preload_reveal_elapsed_us = preload_reveal_duration_us;
-  if (preload_reveal_timer != NULL) {
-    SAGE_ElapsedTime(preload_reveal_timer);
-  }
+  } while (preload_reveal_elapsed_us < preload_reveal_duration_us);
 
   return TRUE;
 }
 
 void SpyPreloadRelease(void)
 {
-  if (preload_reveal_timer != NULL) {
-    SAGE_ReleaseTimer(preload_reveal_timer);
-    preload_reveal_timer = NULL;
-  }
   preload_reveal_elapsed_us = 0;
   preload_reveal_duration_us = 0;
-  preload_reveal_manual = FALSE;
 
   if (preload_background != NULL) {
     SAGE_ReleasePicture(preload_background);

@@ -2,7 +2,7 @@
 # GCC-only Amiga build
 ################################################################################
 
-GCC_ROOT ?= D:/SDK/amiga-gcc
+GCC_ROOT ?= Y:/SDK/amiga-gcc
 GCC_TARGET = $(GCC_ROOT)/m68k-amigaos
 
 CC = "$(GCC_ROOT)/bin/m68k-amigaos-gcc.exe"
@@ -235,6 +235,10 @@ $(PUFF_OBJ): $(SRC_DIR)/third_party/puff.c $(SRC_DIR)/third_party/puff.h | $(OBJ
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/spy_girl.o: $(SRC_DIR)/spy_config.h $(SRC_DIR)/spy_camera_timeline.h
+
+$(OBJ_DIR)/spy_preload.o: $(SRC_DIR)/spy_config.h
+
+$(OBJ_DIR)/spy_girl.o $(OBJ_DIR)/spy_preload.o $(OBJ_DIR)/sage_sage_timer.o: $(SAGE_DIR)/include/sage/sage_timer.h
 
 $(OBJ_DIR)/spy_tunnel.o: $(SRC_DIR)/spy_config.h $(SRC_DIR)/spy_tunnel_renderer.h
 

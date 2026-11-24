@@ -5,7 +5,7 @@
 #define SPY_SCREEN_WIDTH              320
 #define SPY_SCREEN_HEIGHT             200
 #define SPY_SCREEN_DEPTH              16
-#define SPY_SCREEN_MAX_FPS            50UL
+#define SPY_SYSTEM_VBLANK_HZ          0 /* 0 uses Exec's interrupt rate, separate from SAGA output. */
 #define SPY_PRELOAD_BACKGROUND_FILENAME "assets/gfx/loading_background.bmp"
 #define SPY_PRELOAD_BACKGROUND_REVEAL_BLOCK_SIZE 16
 #define SPY_PRELOAD_BACKGROUND_REVEAL_SECONDS 2.0f
@@ -13,6 +13,10 @@
 
 #if SPY_SCREEN_DEPTH != 16
 #error Maggie stream rendering expects a 16-bit screen
+#endif
+
+#if SPY_SYSTEM_VBLANK_HZ != 0 && SPY_SYSTEM_VBLANK_HZ != 50 && SPY_SYSTEM_VBLANK_HZ != 60
+#error SPY_SYSTEM_VBLANK_HZ must be 0, 50 or 60
 #endif
 
 /* Visual debug */

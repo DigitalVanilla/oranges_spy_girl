@@ -4,7 +4,7 @@
 #include <exec/types.h>
 
 BOOL SpyTunnelEffectsInit(void);
-void SpyTunnelEffectsUpdate(void);
+void SpyTunnelEffectsUpdate(ULONG delta_us);
 BOOL SpyTunnelEffectsIntroIsHidden(void);
 BOOL SpyTunnelEffectsIntroIsActive(void);
 void SpyTunnelEffectsApplyIntroReveal(

@@ -8,11 +8,13 @@
  * @version 25.1 February 2025 (updated: 24/02/2025)
  */
 
+#include <exec/execbase.h>
 #include <sage/sage_debug.h>
 #include <sage/sage_logger.h>
 #include <sage/sage_error.h>
 #include <sage/sage_memory.h>
 #include <sage/sage_timer.h>
+#include <sage/sage_vblint.h>
 
 #include <clib/exec_protos.h>
 #include <clib/alib_protos.h>
@@ -20,6 +22,8 @@
 
 /** @var Timer library */
 struct Library *TimerBase = NULL;
+
+extern struct ExecBase *SysBase;
 
 /**
  * Allocate a timer
@@ -144,4 +148,39 @@ BOOL SAGE_Delay(SAGE_Timer *timer, ULONG duration)
   timer->io_request->tr_time = tv;
   DoIO((struct IORequest *) timer->io_request);
   return TRUE;
+}
+
+BOOL SAGE_ResetVBlankClock(SAGE_VBlankClock *clock, ULONG vblank_hz)
+{
+  if (clock == NULL || (vblank_hz != 0 && vblank_hz != 50 && vblank_hz != 60)) {
+    return FALSE;
+  }
+
+  if (vblank_hz == 0) {
+    vblank_hz = SysBase->VBlankFrequency == 60 ? 60 : 50;
+  }
+  clock->vblank_hz = vblank_hz;
+  clock->last_vblank = SAGE_GetVblCount();
+  clock->remainder = 0;
+  return TRUE;
+}
+
+ULONG SAGE_ElapsedVBlankUs(SAGE_VBlankClock *clock)
+{
+  ULONG current = SAGE_GetVblCount();
+  ULONG vblanks = current - clock->last_vblank;
+  ULONG fraction;
+
+  if (vblanks == 0) {
+    return 0;
+  }
+  clock->last_vblank = current;
+  if (clock->vblank_hz == 50) {
+    return vblanks * (STIM_TICKS / 50);
+  }
+
+  // Carry the fractional microseconds so sixty VBlanks total exactly one second.
+  fraction = (vblanks % 60) * STIM_TICKS + clock->remainder;
+  clock->remainder = fraction % 60;
+  return (vblanks / 60) * STIM_TICKS + fraction / 60;
 }

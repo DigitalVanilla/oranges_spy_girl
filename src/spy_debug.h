@@ -2,11 +2,10 @@
 #define SPY_GIRL_DEBUG_H
 
 #include <exec/types.h>
-#include <sage/sage_timer.h>
 #include <maggie_vec.h>
 
 BOOL SpyDebugConfigureOverlay(void);
-UWORD SpyUpdateFpsCounter(SAGE_Timer *timer, UWORD *frame_count, ULONG *elapsed_time, UWORD fps);
+UWORD SpyUpdateFpsCounter(ULONG frame_elapsed_us, UWORD *frame_count, ULONG *elapsed_time, UWORD fps);
 void SpyDrawDebugOverlay(
   UWORD fps,
   const vec3 *camera_position,
@@ -16,7 +15,10 @@ void SpyDrawDebugOverlay(
   ULONG animation_frame_count,
   ULONG maggie_ticks_per_frame,
   BOOL stream_paused,
-  const char *camera_mode_name
+  const char *camera_mode_name,
+  ULONG demo_elapsed_us,
+  ULONG demo_vblanks,
+  BOOL trace_draw
 );
 
 #endif

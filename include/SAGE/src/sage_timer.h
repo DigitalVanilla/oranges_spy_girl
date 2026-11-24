@@ -48,4 +48,17 @@ ULONG SAGE_ElapsedTime(SAGE_Timer *);
 /** Wait for a certain amount of time */
 BOOL SAGE_Delay(SAGE_Timer *, ULONG);
 
+/** Independent clock driven by system VBlank interrupts. */
+typedef struct {
+  ULONG vblank_hz;
+  ULONG last_vblank;
+  ULONG remainder;
+} SAGE_VBlankClock;
+
+/** Reset with the SAGE screen open. Pass 0 for Exec's rate (50 Hz fallback), 50 or 60. */
+BOOL SAGE_ResetVBlankClock(SAGE_VBlankClock *, ULONG);
+
+/** Return elapsed microseconds since the last reset or read. Reset the clock before use. */
+ULONG SAGE_ElapsedVBlankUs(SAGE_VBlankClock *);
+
 #endif
