@@ -43,8 +43,6 @@
 #define SPY_INTRO_DIZ_FALLBACK "file_id.diz"
 #define SPY_INTRO_PAUSE_TICKS 200
 #define SPY_DEBUG_ARGUMENT "DEBUG"
-#define SPY_REFRESH_PROBE_DURATION_US (2UL * STIM_TICKS)
-#define SPY_TIMING_LOG_INTERVAL_US (5UL * STIM_TICKS)
 
 struct Library *IconBase = NULL;
 
@@ -283,11 +281,6 @@ static void SpyCameraApplyDebugOffset(
   }
 }
 
-static ULONG SpySageTimeToMicros(ULONG sage_time)
-{
-  return ((sage_time >> STIM_SECONDS_SHIFT) * STIM_TICKS) + (sage_time & STIM_MICRO_MASK);
-}
-
 static ULONG SpySecondsToMicros(float seconds)
 {
   if (seconds <= 0.0f) {
@@ -427,15 +420,13 @@ static void SpyRunIntroShell(void)
 }
 
 int main(int argc, char* argv[]) {
+  BPTR program_directory = GetProgramDir();
+  BPTR previous_directory = 0;
   SAGE_VBlankClock demo_clock;
-  SAGE_Timer *refresh_probe_timer = NULL;
   ULONG fps_elapsed = 0;
   ULONG demo_elapsed_us = 0;
   ULONG demo_start_vbl;
-  ULONG last_timing_log_us = 0;
   ULONG stream_elapsed_us = 0;
-  ULONG refresh_probe_elapsed_us = 0;
-  ULONG refresh_probe_start_vbl = 0;
   ULONG maggie_ticks_per_frame = 1;
   ULONG maggie_appear_us = SpySecondsToMicros(SPY_MAGGIE_APPEAR_SECONDS);
   ULONG text_start_delay_us = SpySecondsToMicros(SPY_TEXT_START_DELAY_SECONDS);
@@ -452,7 +443,6 @@ int main(int argc, char* argv[]) {
   BOOL demo_mode_layer_ready = FALSE;
   BOOL must_exit = FALSE;
   BOOL debug_overlay_enabled = FALSE;
-  BOOL overlay_traced = FALSE;
   BOOL demo_mode_enabled = FALSE;
   BOOL maggie_stream_paused = FALSE;
   BOOL tunnel_visible = TRUE;
@@ -467,12 +457,18 @@ int main(int argc, char* argv[]) {
   SpyCameraPose camera_debug_offset = { { 0.0f, 0.0f, 0.0f }, 0.0f, 0.0f };
   int result = 0;
 
+  if (program_directory != 0) {
+    previous_directory = CurrentDir(program_directory);
+  }
   SpyRunIntroShell();
 
   SpyLogOpen(SPY_LOG_FILENAME);
   SAGE_SetLogLevel(full_debug_enabled ? SLOG_DEBUG : SLOG_INFO);
   SpyLog("Spy Girl starting\n");
   SpyLog("Full debug logging: %s\n", full_debug_enabled ? "ON" : "OFF");
+  if (full_debug_enabled) {
+    SpyLog("Asset lookup: %s\n", program_directory != 0 ? "executable drawer" : "current directory");
+  }
 
   if (!SpyCameraTimelineEvaluate(
     spy_camera_timeline,
@@ -667,14 +663,6 @@ int main(int argc, char* argv[]) {
   SpyPreloadRelease();
   SAGE_Pause(SPY_PRELOAD_BLACK_PAUSE_TICKS);
 
-  refresh_probe_timer = SAGE_AllocTimer();
-  if (refresh_probe_timer != NULL) {
-    SAGE_ElapsedTime(refresh_probe_timer);
-    refresh_probe_start_vbl = SAGE_GetVblCount();
-  } else {
-    SpyLog("Display timing probe unavailable\n");
-  }
-
   SpyAudioStartMusic();
   SpyTunnelRestartIntroReveal();
 
@@ -688,39 +676,8 @@ int main(int argc, char* argv[]) {
 
   while(!must_exit) {
     ULONG frame_elapsed_us = SAGE_ElapsedVBlankUs(&demo_clock);
-    ULONG demo_vblanks = demo_clock.last_vblank - demo_start_vbl;
-    BOOL trace_overlay = FALSE;
 
     demo_elapsed_us += frame_elapsed_us;
-    if (refresh_probe_timer != NULL) {
-      ULONG elapsed = SAGE_ElapsedTime(refresh_probe_timer);
-
-      if (elapsed == STIM_OVERFLOW) {
-        refresh_probe_elapsed_us = 0;
-        refresh_probe_start_vbl = SAGE_GetVblCount();
-      } else {
-        refresh_probe_elapsed_us += SpySageTimeToMicros(elapsed);
-        if (refresh_probe_elapsed_us >= SPY_REFRESH_PROBE_DURATION_US) {
-          ULONG refresh_probe_vblanks = SAGE_GetVblCount() - refresh_probe_start_vbl;
-          ULONG refresh_probe_hz = (ULONG)(
-            (((double)refresh_probe_vblanks * (double)STIM_TICKS) /
-              (double)refresh_probe_elapsed_us) + 0.5
-          );
-
-          SpyLog(
-            "Display timing: %ldx%ldx%ld, system VBlank vs timer.device=%lu Hz (%lu VBL in %lu us)\n",
-            (LONG)SPY_SCREEN_WIDTH,
-            (LONG)SPY_SCREEN_HEIGHT,
-            (LONG)SPY_SCREEN_DEPTH,
-            refresh_probe_hz,
-            refresh_probe_vblanks,
-            refresh_probe_elapsed_us
-          );
-          SAGE_ReleaseTimer(refresh_probe_timer);
-          refresh_probe_timer = NULL;
-        }
-      }
-    }
 
     {
       BOOL demo_mode_was_enabled = demo_mode_enabled;
@@ -847,23 +804,7 @@ int main(int argc, char* argv[]) {
 
     // display the debug infos
     fps_value = SpyUpdateFpsCounter(frame_elapsed_us, &fps_frames, &fps_elapsed, fps_value);
-    if (full_debug_enabled && demo_elapsed_us - last_timing_log_us >= SPY_TIMING_LOG_INTERVAL_US) {
-      last_timing_log_us = demo_elapsed_us;
-      SpyLog(
-        "Playback timing: demo_us=%lu stream_us=%lu vbl=%lu frm=%lu/%lu tk/frm=%lu\n",
-        demo_elapsed_us,
-        stream_elapsed_us,
-        demo_vblanks,
-        SpyMaggieGetCurrentFrame(),
-        SpyMaggieGetFrameCount(),
-        maggie_ticks_per_frame
-      );
-    }
     if (debug_overlay_enabled) {
-      trace_overlay = full_debug_enabled && !overlay_traced;
-      if (trace_overlay) {
-        SpyLog("Overlay: drawing cached font into back buffer\n");
-      }
       SpyDrawDebugOverlay(
         fps_value,
         &camera_pose.position,
@@ -875,12 +816,8 @@ int main(int argc, char* argv[]) {
         maggie_stream_paused,
         SpyMaggieCameraModeName(camera_mode),
         demo_elapsed_us,
-        demo_vblanks,
-        trace_overlay
+        demo_clock.last_vblank - demo_start_vbl
       );
-      if (trace_overlay) {
-        SpyLog("Overlay: draw returned, refreshing screen\n");
-      }
     }
  
     if (!SAGE_RefreshScreen()) {
@@ -891,10 +828,6 @@ int main(int argc, char* argv[]) {
         result = 1;
         goto shutdown;
       }
-    }
-    if (trace_overlay) {
-      SpyLog("Overlay: screen refresh returned\n");
-      overlay_traced = TRUE;
     }
   }
 
@@ -932,11 +865,6 @@ shutdown:
     SpyTunnelRelease();
     tunnel_ready = FALSE;
   }
-  if (refresh_probe_timer != NULL) {
-    SpyLog("Shutdown: release display timing probe\n");
-    SAGE_ReleaseTimer(refresh_probe_timer);
-    refresh_probe_timer = NULL;
-  }
   SpyLog("Shutdown: release audio\n");
   SpyAudioRelease();
   SpyLog("Shutdown: release Maggie\n");
@@ -948,5 +876,8 @@ shutdown:
   }
   SpyLog("Spy Girl shutdown, result=%d\n", result);
   SpyLogClose();
+  if (program_directory != 0) {
+    CurrentDir(previous_directory);
+  }
   return result;
 }

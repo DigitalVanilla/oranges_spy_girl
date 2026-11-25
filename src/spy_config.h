@@ -23,10 +23,7 @@
 #define SPY_DEBUG_SCREEN_X            0
 #define SPY_DEBUG_SCREEN_Y            0
 #define SPY_DEBUG_LINE_HEIGHT         8
-#define SPY_DEBUG_FRONT_PEN           1
-#define SPY_DEBUG_BACK_PEN            0
 #define SPY_DEBUG_FRONT_COLOR         0x00ffffff
-#define SPY_DEBUG_BACK_COLOR          0x00000000
 
 /* Tunnel layout */
 #define SPY_TUNNEL_LAYER              0

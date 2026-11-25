@@ -17,8 +17,7 @@ void SpyDrawDebugOverlay(
   BOOL stream_paused,
   const char *camera_mode_name,
   ULONG demo_elapsed_us,
-  ULONG demo_vblanks,
-  BOOL trace_draw
+  ULONG demo_vblanks
 );
 
 #endif

@@ -120,12 +120,23 @@ BOOL SpyMaggieInit(const char *stream_name, const vec3 *camera_position, float y
     return FALSE;
   }
 
-  MaggieBase = OpenLibrary((UBYTE *)"maggie.library", 0);
+  MaggieBase = OpenLibrary((UBYTE *)"PROGDIR:maggie.library", 0);
+  if (MaggieBase == NULL) {
+    SpyLog("Maggie: PROGDIR:maggie.library open failed, trying the system search\n");
+    MaggieBase = OpenLibrary((UBYTE *)"maggie.library", 0);
+  }
   if (MaggieBase == NULL) {
     SAGE_AppliLog("Maggie disabled: can't open maggie.library");
     SAGE_SetError(SERR_NO_MAGGIE);
     return FALSE;
   }
+  SpyLog(
+    "Maggie library opened: %u.%u (%s), vector bytes=%u\n",
+    (unsigned int)MaggieBase->lib_Version,
+    (unsigned int)MaggieBase->lib_Revision,
+    MaggieBase->lib_IdString != NULL ? (const char *)MaggieBase->lib_IdString : "no ID string",
+    (unsigned int)MaggieBase->lib_NegSize
+  );
 
   InitMaggieScene(camera_position, yaw, pitch, camera_mode);
 

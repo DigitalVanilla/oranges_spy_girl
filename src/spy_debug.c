@@ -8,7 +8,6 @@
 
 #include "spy_config.h"
 #include "spy_debug.h"
-#include "spy_log.h"
 
 #define FPS_INTERVAL_US STIM_TICKS
 #define SPY_RADIANS_TO_DEGREES 57.2957795130823208768f
@@ -170,8 +169,7 @@ void SpyDrawDebugOverlay(
   BOOL stream_paused,
   const char *camera_mode_name,
   ULONG demo_elapsed_us,
-  ULONG demo_vblanks,
-  BOOL trace_draw
+  ULONG demo_vblanks
 )
 {
   char xsign, ysign, zsign, yawsign, pitchsign;
@@ -184,9 +182,6 @@ void SpyDrawDebugOverlay(
   if (!overlay_font_ready || camera_position == NULL || bitmap == NULL ||
       bitmap->bitmap_buffer == NULL || bitmap->depth != 16 ||
       bitmap->bpr < bitmap->width * sizeof(UWORD) || (bitmap->bpr & 1)) {
-    if (trace_draw) {
-      SpyLog("Overlay: no cached font or usable 16-bit back buffer\n");
-    }
     return;
   }
   color = (UWORD)SAGE_RemapColorToPixFormat(SPY_DEBUG_FRONT_COLOR, bitmap->pixformat);
@@ -201,9 +196,6 @@ void SpyDrawDebugOverlay(
   GetCameraCoordParts(camera_pitch * SPY_RADIANS_TO_DEGREES, &pitchsign, &pitchwhole, &pitchfrac);
   animation_second = (animation_frame * maggie_ticks_per_frame) / SPY_MAGGIE_TICKS_PER_SECOND;
 
-  if (trace_draw) {
-    SpyLog("Overlay: drawing animation line\n");
-  }
   SpyDebugPrintLine(
     bitmap,
     SPY_DEBUG_SCREEN_Y + SPY_DEBUG_LINE_HEIGHT + 5,
@@ -215,9 +207,6 @@ void SpyDrawDebugOverlay(
     animation_frame_count,
     maggie_ticks_per_frame
   );
-  if (trace_draw) {
-    SpyLog("Overlay: drawing camera position\n");
-  }
   SpyDebugPrintLine(
     bitmap,
     SPY_DEBUG_SCREEN_Y + (SPY_DEBUG_LINE_HEIGHT * 2) + 9,
@@ -228,9 +217,6 @@ void SpyDrawDebugOverlay(
     ysign, ywhole, yfrac,
     zsign, zwhole, zfrac
   );
-  if (trace_draw) {
-    SpyLog("Overlay: drawing camera rotation\n");
-  }
   SpyDebugPrintLine(
     bitmap,
     SPY_DEBUG_SCREEN_Y + (SPY_DEBUG_LINE_HEIGHT * 3) + 12,
@@ -240,9 +226,6 @@ void SpyDrawDebugOverlay(
     pitchsign, pitchwhole, pitchfrac,
     stream_paused ? "PAUSE" : "RUN"
   );
-  if (trace_draw) {
-    SpyLog("Overlay: drawing demo timing\n");
-  }
   SpyDebugPrintLine(
     bitmap,
     SPY_DEBUG_SCREEN_Y + (SPY_DEBUG_LINE_HEIGHT * 4) + 15,

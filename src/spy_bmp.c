@@ -82,8 +82,9 @@ SAGE_Picture *SpyBmpLoadPicture(const char *filename)
 
   file = Open((STRPTR)filename, MODE_OLDFILE);
   if (file == 0) {
+    LONG dos_error = IoErr();
     SAGE_SetError(SERR_OPENFILE);
-    SpyLog("BMP load failed: cannot open %s\n", filename);
+    SpyLog("BMP load failed: cannot open %s (DOS error %ld)\n", filename, dos_error);
     return NULL;
   }
 
