@@ -406,22 +406,24 @@ static void SpyIntroPrintDiz(BPTR console)
   Close(file);
 }
 
-static void SpyRunIntroShell(void)
+static BPTR SpyRunIntroShell(void)
 {
   BPTR console = Open((STRPTR)SPY_INTRO_CONSOLE, MODE_NEWFILE);
 
   if (console == 0) {
-    return;
+    return 0;
   }
 
   SpyIntroPrintDiz(console);
   FPuts(console, (STRPTR)"\n");
   Delay(SPY_INTRO_PAUSE_TICKS);
+  return console;
 }
 
 int main(int argc, char* argv[]) {
   BPTR program_directory = GetProgramDir();
   BPTR previous_directory = 0;
+  BPTR intro_console;
   SAGE_VBlankClock demo_clock;
   ULONG fps_elapsed = 0;
   ULONG demo_elapsed_us = 0;
@@ -460,7 +462,7 @@ int main(int argc, char* argv[]) {
   if (program_directory != 0) {
     previous_directory = CurrentDir(program_directory);
   }
-  SpyRunIntroShell();
+  intro_console = SpyRunIntroShell();
 
   SpyLogOpen(SPY_LOG_FILENAME);
   SAGE_SetLogLevel(full_debug_enabled ? SLOG_DEBUG : SLOG_INFO);
@@ -878,6 +880,9 @@ shutdown:
   SpyLogClose();
   if (program_directory != 0) {
     CurrentDir(previous_directory);
+  }
+  if (intro_console != 0) {
+    Close(intro_console);
   }
   return result;
 }

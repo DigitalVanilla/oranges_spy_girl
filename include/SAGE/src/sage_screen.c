@@ -157,14 +157,11 @@ VOID SAGE_ReleaseScreenBuffer(struct Screen *custom_screen, SAGE_ScreenBuffer *s
   SD(SAGE_DebugLog("Release screen buffer");)
   if (scr_buf->safe_port) {
     while (GetMsg(scr_buf->safe_port) != NULL);
-    DeleteMsgPort(scr_buf->safe_port);
-    scr_buf->safe_port = NULL;
   }
   if (scr_buf->display_port) {
     while (GetMsg(scr_buf->display_port) != NULL);
-    DeleteMsgPort(scr_buf->display_port);
-    scr_buf->display_port = NULL;
   }
+  WaitBlit();
   if (scr_buf->wait_buffer) {
     scr_buf->wait_buffer->sb_DBufInfo->dbi_SafeMessage.mn_ReplyPort = NULL;
     scr_buf->wait_buffer->sb_DBufInfo->dbi_DispMessage.mn_ReplyPort = NULL;
@@ -182,6 +179,14 @@ VOID SAGE_ReleaseScreenBuffer(struct Screen *custom_screen, SAGE_ScreenBuffer *s
     scr_buf->front_buffer->sb_DBufInfo->dbi_DispMessage.mn_ReplyPort = NULL;
     FreeScreenBuffer(custom_screen, scr_buf->front_buffer);
     scr_buf->front_buffer = NULL;
+  }
+  if (scr_buf->safe_port) {
+    DeleteMsgPort(scr_buf->safe_port);
+    scr_buf->safe_port = NULL;
+  }
+  if (scr_buf->display_port) {
+    DeleteMsgPort(scr_buf->display_port);
+    scr_buf->display_port = NULL;
   }
 }
 
@@ -609,6 +614,13 @@ BOOL SAGE_CloseScreen()
     SAGE_ErrorLog("Screen is NULL, this is not normal !");
     SAGE_SetError(SERR_NO_SCREEN);
     return FALSE;
+  }
+  // The last flip may still own a reply message embedded in its screen buffer.
+  if (screen->screen_buffer.safe_port != NULL && !screen->screen_buffer.safe_display) {
+    WaitPort(screen->screen_buffer.safe_port);
+  }
+  if (screen->screen_buffer.display_port != NULL && !screen->screen_buffer.safe_change) {
+    WaitPort(screen->screen_buffer.display_port);
   }
   SAGE_EnableFrameCount(FALSE);
   SAGE_RemoveVblInterrupt();
